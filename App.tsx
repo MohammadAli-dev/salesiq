@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Header } from './components/Header';
 import { FileUpload } from './components/FileUpload';
 import { AnalysisDashboard } from './components/AnalysisDashboard';
-import { AppState, AnalysisResult } from './types';
+import { AppState } from './types';
 import { analyzeSalesCall } from './services/geminiService';
 import { Loader2 } from 'lucide-react';
 
@@ -11,54 +11,98 @@ const App: React.FC = () => {
     status: 'idle',
     data: null,
     error: null,
-    audioUrl: null,
+    mediaUrl: null,
+    mimeType: null,
+    fileName: null,
   });
 
-  const handleFileSelect = async (file: File) => {
+  const analyzeMedia = async () => {
+      if (!state.mediaUrl || !state.mimeType) return;
+
+      setState(prev => ({ ...prev, status: 'analyzing', error: null }));
+
+      try {
+        let base64Data = '';
+        
+        // Fetch blob from local object URL or remote URL to get base64
+        const response = await fetch(state.mediaUrl);
+        const blob = await response.blob();
+        
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            const base64String = reader.result as string;
+            base64Data = base64String.split(',')[1];
+            
+            try {
+                const result = await analyzeSalesCall(base64Data, state.mimeType!);
+                setState(prev => ({ ...prev, status: 'complete', data: result }));
+            } catch (err: any) {
+                console.error(err);
+                setState(prev => ({ 
+                    ...prev, 
+                    status: 'error', 
+                    error: err.message || "Failed to analyze media. Please try again." 
+                }));
+            }
+        };
+        reader.readAsDataURL(blob);
+
+      } catch (err: any) {
+         setState(prev => ({ 
+            ...prev, 
+            status: 'error', 
+            error: "Failed to process the media file." 
+         }));
+      }
+  };
+
+  const handleFileSelect = (file: File) => {
     // Create local URL for playback
     const url = URL.createObjectURL(file);
     
     setState({
-      status: 'analyzing',
+      status: 'ready',
       data: null,
       error: null,
-      audioUrl: url,
+      mediaUrl: url,
+      mimeType: file.type,
+      fileName: file.name
     });
+  };
 
-    try {
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result as string;
-        // Remove data URL prefix (e.g., "data:audio/mp3;base64,")
-        const base64Data = base64String.split(',')[1];
-        
-        try {
-            const result = await analyzeSalesCall(base64Data, file.type);
-            setState(prev => ({ ...prev, status: 'complete', data: result }));
-        } catch (err: any) {
-             console.error(err);
-             setState(prev => ({ 
-                ...prev, 
-                status: 'error', 
-                error: err.message || "Failed to analyze audio. Please try again." 
-             }));
-        }
-      };
+  const handleUrlSelect = async (url: string) => {
+      // Temporary state while validating URL
+      // In a real app we might validate HEAD first, but here we just set ready
+      // We will try to fetch mime type when they click analyze or here?
+      // Let's assume it works for now and grab name from URL
+      const name = url.split('/').pop() || 'Remote File';
       
-      reader.onerror = () => {
-         setState(prev => ({ ...prev, status: 'error', error: "Failed to read file." }));
+      setState({
+          status: 'ready',
+          data: null,
+          error: null,
+          mediaUrl: url,
+          mimeType: 'audio/mp3', // Default, updated on analyze if possible or we can pre-fetch
+          fileName: name
+      });
+  };
+
+  const handleRemoveFile = () => {
+      if (state.mediaUrl && state.mediaUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(state.mediaUrl);
       }
+      setState({
+          status: 'idle',
+          data: null,
+          error: null,
+          mediaUrl: null,
+          mimeType: null,
+          fileName: null
+      });
+  };
 
-      reader.readAsDataURL(file);
-
-    } catch (e: any) {
-      setState(prev => ({ 
-        ...prev, 
-        status: 'error', 
-        error: e.message || "An unexpected error occurred." 
-      }));
-    }
+  const handleReset = () => {
+      handleRemoveFile();
   };
 
   return (
@@ -74,31 +118,51 @@ const App: React.FC = () => {
                  <span className="text-primary-600">Sales Conversations</span>
                </h2>
                <p className="max-w-2xl mx-auto text-xl text-slate-500">
-                 Upload your sales call recordings and let Gemini transcribe, analyze, and coach your team to close more deals.
+                 Upload sales call recordings (audio or video) to let Gemini transcribe, analyze, and coach your team.
                </p>
              </div>
-             <FileUpload onFileSelect={handleFileSelect} isAnalyzing={false} />
+             <FileUpload 
+                onFileSelect={handleFileSelect} 
+                onUrlSelect={handleUrlSelect} 
+                selectedFile={null}
+                onRemove={() => {}}
+                onAnalyze={() => {}}
+                isAnalyzing={false}
+             />
            </div>
         )}
 
-        {state.status === 'analyzing' && (
-           <div className="flex flex-col items-center justify-center min-h-[60vh]">
-              <Loader2 className="animate-spin text-primary-600 mb-6" size={64} />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Analyzing Conversation</h3>
-              <p className="text-gray-500">Processing audio with Gemini 2.5 Flash...</p>
-              <div className="w-64 h-2 bg-gray-200 rounded-full mt-8 overflow-hidden">
-                <div className="h-full bg-primary-500 animate-progress"></div>
-              </div>
+        {(state.status === 'ready' || state.status === 'analyzing') && (
+           <div className="py-16">
+             <div className="text-center mb-8">
+               <h2 className="text-3xl font-bold text-slate-900">
+                 {state.status === 'analyzing' ? 'Analyzing Conversation' : 'Review Selection'}
+               </h2>
+               <p className="text-slate-500 mt-2">
+                 {state.status === 'analyzing' 
+                    ? 'Gemini is identifying speakers, analyzing sentiment, and generating insights.' 
+                    : 'Review your file before starting the AI analysis.'}
+               </p>
+             </div>
+             
+             <FileUpload 
+                onFileSelect={handleFileSelect} // Not used in this state but prop required
+                onUrlSelect={handleUrlSelect} 
+                selectedFile={state.fileName ? { name: state.fileName, type: state.mimeType || 'unknown' } : null}
+                onRemove={handleRemoveFile}
+                onAnalyze={analyzeMedia}
+                isAnalyzing={state.status === 'analyzing'}
+             />
            </div>
         )}
 
         {state.status === 'error' && (
           <div className="max-w-2xl mx-auto mt-12 px-4">
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center shadow-sm">
               <h3 className="text-xl font-bold text-red-700 mb-2">Analysis Failed</h3>
               <p className="text-red-600 mb-6">{state.error}</p>
               <button 
-                onClick={() => setState(prev => ({ ...prev, status: 'idle', error: null }))}
+                onClick={handleReset}
                 className="px-6 py-2 bg-white border border-red-200 text-red-700 font-medium rounded-lg hover:bg-red-50 transition-colors"
               >
                 Try Again
@@ -108,7 +172,12 @@ const App: React.FC = () => {
         )}
 
         {state.status === 'complete' && state.data && (
-          <AnalysisDashboard data={state.data} audioUrl={state.audioUrl} />
+          <AnalysisDashboard 
+            data={state.data} 
+            mediaUrl={state.mediaUrl} 
+            mimeType={state.mimeType} 
+            onReset={handleReset}
+          />
         )}
       </main>
       
@@ -120,14 +189,14 @@ const App: React.FC = () => {
           100% { width: 95%; }
         }
         .animate-progress {
-          animation: progress 8s ease-out forwards;
+          animation: progress 15s ease-out forwards;
         }
         @keyframes fade-in {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
         }
         .animate-fade-in {
-          animation: fade-in 0.6s ease-out forwards;
+          animation: fade-in 0.4s ease-out forwards;
         }
       `}</style>
     </div>
