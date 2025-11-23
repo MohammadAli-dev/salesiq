@@ -65,8 +65,44 @@ const responseSchema: Schema = {
         required: ["name", "timestamp", "context"],
       },
     },
+    callScore: {
+      type: Type.NUMBER,
+      description: "An overall score for the call from 0 to 100 based on sales best practices.",
+    },
+    objections: {
+      type: Type.ARRAY,
+      description: "List of objections raised by the prospect.",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          objection: { type: Type.STRING, description: "The objection raised." },
+          timestamp: { type: Type.STRING, description: "Timestamp of the objection." },
+          response: { type: Type.STRING, description: "How the sales rep responded to the objection." },
+        },
+        required: ["objection", "timestamp", "response"],
+      },
+    },
+    redFlags: {
+      type: Type.ARRAY,
+      description: "Potential red flags or churn risks.",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          flag: { type: Type.STRING, description: "The red flag identifier (e.g., 'Budget Constraint')." },
+          timestamp: { type: Type.STRING, description: "Timestamp." },
+          riskLevel: { type: Type.STRING, enum: ["High", "Medium", "Low"], description: "Severity of the risk." },
+          context: { type: Type.STRING, description: "Context around the red flag." },
+        },
+        required: ["flag", "timestamp", "riskLevel", "context"],
+      },
+    },
+    nextSteps: {
+      type: Type.ARRAY,
+      description: "Recommended next steps for the sales rep.",
+      items: { type: Type.STRING },
+    },
   },
-  required: ["transcript", "sentimentGraph", "coaching", "competitors"],
+  required: ["transcript", "sentimentGraph", "coaching", "competitors", "callScore", "objections", "redFlags", "nextSteps"],
 };
 
 export const analyzeSalesCall = async (base64Audio: string, mimeType: string): Promise<AnalysisResult> => {
@@ -88,11 +124,16 @@ export const analyzeSalesCall = async (base64Audio: string, mimeType: string): P
             },
           },
           {
-            text: `Analyze this sales call audio. 
-            1. Transcribe the audio, identifying speakers as 'Sales Rep' and 'Prospect' (or similar roles) based on context.
-            2. Analyze the sentiment flow of the conversation and provide data points for a graph (0-100 score).
-            3. Provide a coaching card with 3 specific strengths and 3 missed opportunities.
-            4. Identify any mentions of competitors. List the competitor name, the timestamp, and the context. If none are mentioned, return an empty array.
+            text: `Analyze this sales call audio extensively based on the following parameters:
+            
+            1. **Transcript**: Transcribe the audio, diarizing speakers (e.g., 'Sales Rep', 'Prospect').
+            2. **Sentiment Timeline**: Analyze sentiment flow (0-100) for a graph.
+            3. **Coaching**: Identify 3 strengths and 3 weaknesses (missed opportunities), plus a summary.
+            4. **Objection Detection**: Identify specific objections raised by the prospect and how the rep handled them.
+            5. **Red Flags/Churn Clues**: Identify risks (budget, authority, timeline, competitor lock-in). Assign High/Medium/Low risk.
+            6. **Competitor Mentions**: List any competitors mentioned with context.
+            7. **Next Steps**: Provide 3-5 concrete recommendations for what the rep should do next.
+            8. **Call Score**: Assign a final score (0-100) based on engagement, objection handling, and closing skills.
             
             Return the output strictly as JSON matching the schema provided.`,
           },
@@ -101,7 +142,7 @@ export const analyzeSalesCall = async (base64Audio: string, mimeType: string): P
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.2, // Low temperature for factual transcription
+        temperature: 0.2,
       },
     });
 

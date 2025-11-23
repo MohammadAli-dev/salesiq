@@ -23,11 +23,28 @@ export interface CompetitorMention {
   context: string;
 }
 
+export interface Objection {
+  objection: string;
+  timestamp: string;
+  response: string; // How the rep handled it
+}
+
+export interface RedFlag {
+  flag: string;
+  timestamp: string;
+  riskLevel: 'High' | 'Medium' | 'Low';
+  context: string;
+}
+
 export interface AnalysisResult {
   transcript: TranscriptSegment[];
   sentimentGraph: SentimentPoint[];
   coaching: CoachingData;
   competitors: CompetitorMention[];
+  callScore: number;
+  objections: Objection[];
+  redFlags: RedFlag[];
+  nextSteps: string[];
 }
 
 export interface AppState {
