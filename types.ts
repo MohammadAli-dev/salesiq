@@ -48,8 +48,10 @@ export interface AnalysisResult {
 }
 
 export interface AppState {
-  status: 'idle' | 'analyzing' | 'complete' | 'error';
+  status: 'idle' | 'ready' | 'analyzing' | 'complete' | 'error';
   data: AnalysisResult | null;
   error: string | null;
-  audioUrl: string | null;
+  mediaUrl: string | null;
+  mimeType: string | null;
+  fileName: string | null;
 }

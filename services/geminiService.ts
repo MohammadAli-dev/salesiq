@@ -105,7 +105,7 @@ const responseSchema: Schema = {
   required: ["transcript", "sentimentGraph", "coaching", "competitors", "callScore", "objections", "redFlags", "nextSteps"],
 };
 
-export const analyzeSalesCall = async (base64Audio: string, mimeType: string): Promise<AnalysisResult> => {
+export const analyzeSalesCall = async (base64Data: string, mimeType: string): Promise<AnalysisResult> => {
   if (!API_KEY) {
     throw new Error("API Key is missing. Please check your environment variables.");
   }
@@ -120,13 +120,13 @@ export const analyzeSalesCall = async (base64Audio: string, mimeType: string): P
           {
             inlineData: {
               mimeType: mimeType,
-              data: base64Audio,
+              data: base64Data,
             },
           },
           {
-            text: `Analyze this sales call audio extensively based on the following parameters:
+            text: `Analyze this sales call (audio or video) extensively based on the following parameters:
             
-            1. **Transcript**: Transcribe the audio, diarizing speakers (e.g., 'Sales Rep', 'Prospect').
+            1. **Transcript**: Transcribe the conversation, diarizing speakers (e.g., 'Sales Rep', 'Prospect').
             2. **Sentiment Timeline**: Analyze sentiment flow (0-100) for a graph.
             3. **Coaching**: Identify 3 strengths and 3 weaknesses (missed opportunities), plus a summary.
             4. **Objection Detection**: Identify specific objections raised by the prospect and how the rep handled them.
