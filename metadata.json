@@ -1,0 +1,5 @@
+{
+  "name": "SalesIQ - AI Sales Coach",
+  "description": "Upload sales call recordings to get instant transcription, sentiment analysis, and actionable coaching insights powered by Gemini 2.5 Flash.",
+  "requestFramePermissions": []
+}
