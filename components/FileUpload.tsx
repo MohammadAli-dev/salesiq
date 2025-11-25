@@ -35,13 +35,27 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   };
 
   const validateAndProcessFile = (file: File) => {
-    if (!file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
-      setError("Please upload a valid audio or video file.");
+    // Check MIME type or extension
+    const validMimeTypes = [
+      'audio/', 'video/', // Broad categories
+    ];
+    
+    // Explicit extensions to support cases where browser doesn't detect MIME type correctly (e.g. m4a)
+    const validExtensions = ['.mp3', '.wav', '.m4a', '.mp4', '.mov', '.aac', '.flac', '.ogg', '.webm'];
+    
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+    const isValidType = file.type.startsWith('audio/') || 
+                        file.type.startsWith('video/') || 
+                        validExtensions.includes(fileExtension);
+
+    if (!isValidType) {
+      setError("Please upload a valid audio (MP3, WAV, M4A, AAC) or video (MP4, MOV) file.");
       return;
     }
-    // Limit to approx 50MB for this demo (browser constraint)
-    if (file.size > 50 * 1024 * 1024) {
-      setError("File size exceeds 50MB limit for this demo.");
+
+    // Limit to approx 200MB for this demo (browser constraint)
+    if (file.size > 200 * 1024 * 1024) {
+      setError("File size exceeds 200MB limit.");
       return;
     }
     setError(null);
@@ -82,7 +96,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
   // Render "Selected File" View
   if (selectedFile) {
-    const isVideo = selectedFile.type.startsWith('video/');
+    const isVideo = selectedFile.type.startsWith('video/') || selectedFile.name.endsWith('.mp4') || selectedFile.name.endsWith('.mov');
     
     return (
       <div className="w-full max-w-2xl mx-auto mt-12 px-4 animate-fade-in">
@@ -188,14 +202,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({
               </h3>
               
               <p className="text-gray-500 mb-6 max-w-sm">
-                Drag and drop audio (mp3, wav) or video (mp4, mov) here, or click to browse.
+                Drag and drop audio (mp3, m4a, wav) or video (mp4, mov) here, or click to browse.
               </p>
 
               <input
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
-                accept="audio/*,video/*"
+                accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.ogg,.flac,.mp4,.mov,.webm"
                 onChange={handleChange}
               />
               
@@ -208,7 +222,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             </div>
           </div>
           <p className="text-center text-gray-400 text-sm mt-6">
-            Supports MP3, WAV, MP4, MOV. Max 50MB.
+            Supports M4A, MP3, WAV, AAC, MP4, MOV. Max 200MB.
           </p>
         </>
       ) : (

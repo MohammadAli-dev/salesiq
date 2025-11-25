@@ -35,7 +35,8 @@ const App: React.FC = () => {
         const reader = new FileReader();
         reader.onloadend = async () => {
             const base64String = reader.result as string;
-            base64Data = base64String.split(',')[1];
+            // Handle data: URLs (common with FileReader) vs raw
+            base64Data = base64String.includes(',') ? base64String.split(',')[1] : base64String;
             
             try {
                 // Pass custom instructions to the service
@@ -61,9 +62,31 @@ const App: React.FC = () => {
       }
   };
 
+  /**
+   * Helper to determine MIME type, especially for files where browser returns empty string (common with .m4a)
+   */
+  const getMimeType = (file: File): string => {
+    if (file.type) return file.type;
+    
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    switch (ext) {
+        case 'm4a': return 'audio/mp4'; // Gemini often handles m4a better as mp4 container
+        case 'mp4': return 'video/mp4';
+        case 'mp3': return 'audio/mpeg';
+        case 'wav': return 'audio/wav';
+        case 'aac': return 'audio/aac';
+        case 'flac': return 'audio/flac';
+        case 'ogg': return 'audio/ogg';
+        case 'webm': return 'video/webm';
+        case 'mov': return 'video/quicktime';
+        default: return 'application/octet-stream';
+    }
+  };
+
   const handleFileSelect = (file: File) => {
     // Create local URL for playback
     const url = URL.createObjectURL(file);
+    const mimeType = getMimeType(file);
     
     setState(prev => ({
       ...prev,
@@ -71,7 +94,7 @@ const App: React.FC = () => {
       data: null,
       error: null,
       mediaUrl: url,
-      mimeType: file.type,
+      mimeType: mimeType,
       fileName: file.name
     }));
   };
